@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tenants      Tenant[]  @relation("TenantUsers")
+}
+
+model Tenant {
+  id           String    @id @default(uuid())
+  slug         String    @unique // Default subdomain, e.g. "candidatox", accessible at candidatox.plataforma.com.br
+  name         String    
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  users        User[]    @relation("TenantUsers")
+  domains      Domain[]
+  subscription Subscription?
+  campaignData CampaignData?
+}
+
+model Domain {
+  id           String    @id @default(uuid())
+  domain       String    @unique // e.g. "www.marcosvereador.com.br"
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  isVerified   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+model Subscription {
+  id                   String    @id @default(uuid())
+  tenantId             String    @unique
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asaasCustomerId      String?
+  asaasSubscriptionId  String?
+  status               String    
+  plan                 String    
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model CampaignData {
+  id           String    @id @default(uuid())
+  tenantId     String    @unique
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  themeColor   String    @default("#000000")
+  fontHeading  String    @default("Inter")
+  fontBody     String    @default("Inter")
+  
+  layoutConfig Json?
+
+  instagramUrl String?
+  tiktokUrl    String?
+
+  cnpj         String?
+  partyNumber  String?
+  partyName    String?
+  viceName     String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

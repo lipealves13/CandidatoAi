@@ -1,0 +1,312 @@
+Especificação de Requisitos de Negócio e Técnicos para a Plataforma de Landing Pages Eleitorais com Inteligência Artificial Generativa e Infraestrutura Vercel
+A evolução do ecossistema digital nas campanhas políticas brasileiras exige uma sofisticação tecnológica que equilibre a agilidade na criação de conteúdo com o cumprimento estrito das normas do Tribunal Superior Eleitoral (TSE). O sistema detalhado neste relatório representa uma solução de engenharia de software de alta performance, fundamentada no framework NextJS e na infraestrutura da Vercel, projetada para permitir que candidatos a cargos eletivos desenvolvam sua presença digital de forma autônoma, assistida por uma Inteligência Artificial (IA) capaz de manipular diretamente a base de código.1
+A arquitetura proposta não se limita a um construtor de sites convencional; ela opera sob o paradigma de "infraestrutura como código" (IaC) e "design assistido por IA", onde a modificação do código-fonte ocorre em tempo real para refletir a identidade visual do candidato, enquanto toda a gestão de banco de dados PostgreSQL e armazenamento Vercel Blob é automatizada por meio de pipelines de integração e entrega contínua (CI/CD).4 Este documento estabelece os requisitos fundamentais para a implementação de tal sistema, integrando as dimensões técnica, funcional e jurídica.
+Arquitetura de Sistemas e Multi-Tenancy em Nuvem
+A fundação do sistema deve ser construída utilizando a arquitetura multi-tenant da Vercel, especificamente através do Vercel for Platforms. Esta escolha é estratégica, pois permite que uma única base de código atenda a milhares de candidatos, cada um com seu próprio domínio, configurações de branding e dados isolados.1
+Requisitos de Infraestrutura e Framework
+O sistema deve utilizar o NextJS em sua versão mais recente (15 ou superior), aproveitando o App Router e o suporte estável ao Turbopack para garantir tempos de build reduzidos e uma experiência de desenvolvimento otimizada.9 A escolha do NextJS justifica-se pela sua capacidade nativa de lidar com Server Components (RSC) e Server Actions, que são essenciais para as funcionalidades de modificação de código via IA sem sobrecarregar o cliente.2
+
+Componente
+Especificação de Requisito
+Justificativa Técnica
+Framework Core
+NextJS 15+ (App Router)
+Otimização de SEO, Server Actions e renderização híbrida.9
+Bundler
+Turbopack
+Velocidade de Fast Refresh até 10x superior para iterações rápidas.9
+Plataforma de Deploy
+Vercel (Enterprise/Platforms)
+Gerenciamento dinâmico de domínios e certificados SSL automáticos.1
+Middleware
+Edge Middleware
+Roteamento de subdomínios e domínios customizados com latência zero.7
+CI/CD
+Vercel Git Integration
+Deploy automático a cada alteração de código persistida pela IA.11
+
+A aplicação deve ser configurada para suportar Incremental Static Regeneration (ISR), permitindo que as páginas dos candidatos sejam atualizadas globalmente em menos de 300ms sempre que houver uma alteração de conteúdo ou design, sem a necessidade de um novo build completo do projeto.2
+Gerenciamento de Inquilinos (Tenants) e Isolamento
+O sistema deve implementar um isolamento lógico rigoroso. Cada candidato é um "inquilino" no sistema. O middleware de borda da Vercel deve interceptar todas as requisições e, com base no hostname (ex: candidato1.plataforma.com.br ou www.josecandidato.com.br), identificar o tenantId correspondente no banco de dados PostgreSQL.8
+O roteamento dinâmico deve seguir o padrão de rotas catch-all (ex: app/[domain]/page.tsx), onde o sistema renderiza os componentes de acordo com o esquema de cores, fontes e layout salvos no perfil do candidato.8 Este isolamento garante que, embora o código-fonte seja compartilhado, a execução e os dados permaneçam estritamente segmentados, prevenindo vazamentos de informações sensíveis entre campanhas adversárias.12
+Persistência de Dados e Automação de Migrações
+A gestão de dados deve ser totalmente gerenciada e serverless, utilizando o PostgreSQL como motor principal. A integração recomendada é o Neon, disponível via Vercel Marketplace, que oferece escalabilidade automática e recursos de branching de banco de dados para ambientes de pré-visualização.4
+Requisitos do Banco de Dados PostgreSQL
+O banco de dados deve armazenar não apenas os conteúdos das páginas (biografias, propostas, notícias), mas também os metadados de design gerados pela IA e as configurações de assinatura do Stripe.17
+
+Atributo
+Requisito Técnico
+Detalhamento
+Engine
+PostgreSQL (Neon Serverless)
+Suporte a conexões simultâneas via pooling e escalonamento para zero.20
+ORM
+Prisma ou Drizzle
+Tipagem estática de ponta a ponta e gestão de migrações via código.22
+Connection Pooling
+PgBouncer ou Accelerate
+Essencial para evitar exaustão de conexões em funções serverless.15
+Segurança
+RLS (Row Level Security)
+Políticas de acesso ao banco que garantem que um usuário só acesse seus dados.24
+
+Automação de Migrações e Deploys
+O requisito de "migrações automatizadas via Vercel" exige que o ciclo de vida do banco de dados esteja atrelado ao comando de build da plataforma. O sistema deve ser configurado de forma que, a cada novo deploy, o comando npx prisma migrate deploy ou drizzle-kit migrate seja executado antes da finalização do build.26
+Isso garante que:
+Mudanças no esquema do banco (ex: adição de um novo campo para "Rótulo de IA") sejam aplicadas instantaneamente.26
+Ambientes de Preview tenham seus próprios bancos de dados ou esquemas isolados para testes seguros.29
+Não existam discrepâncias entre a versão do código-fonte rodando em produção e a estrutura das tabelas no PostgreSQL.22
+Gerenciamento de Arquivos e Ativos Digitais com Vercel Blob
+Para o upload de fotos de campanha, logotipos e documentos, o sistema deve integrar-se nativamente ao Vercel Blob. Este serviço substitui a necessidade de servidores de arquivos complexos ou buckets S3 configurados manualmente, oferecendo uma API simples baseada em tokens de leitura e escrita.4
+Requisitos de Upload e Processamento de Mídia
+Os candidatos devem ser capazes de subir fotos em alta resolução através de uma interface de "tela simples". O sistema deve processar esses arquivos para otimizar o desempenho da landing page, especialmente em conexões móveis, que representam a maioria do acesso dos eleitores.3
+Upload Direto do Cliente (Client-side Upload): Para evitar limitações de tempo de execução e memória de funções serverless (limite de 4.5MB), o sistema deve utilizar a técnica de upload seguro direto do navegador para o Vercel Blob, utilizando tokens gerados dinamicamente no servidor.31
+Segurança de Ativos: Cada arquivo deve ter uma URL única e não adivinhável. Embora o acesso para visualização seja público para as landing pages, a escrita deve ser restrita ao token associado ao tenantId do candidato.30
+Otimização com NextJS Image: O sistema deve consumir as URLs do Blob através do componente next/image, realizando a compressão automática para formatos modernos como WebP ou AVIF e gerando múltiplos tamanhos de imagem (srcsets) para diferentes dispositivos.2
+Gestão de Cache: Os ativos no Vercel Blob devem ser servidos via CDN global com cabeçalhos de cache configurados para longa duração, utilizando invalidação inteligente quando uma foto for substituída pelo candidato.4
+
+Tipo de Mídia
+Requisito de Armazenamento
+Ação de IA Sugerida
+Fotos do Candidato
+Vercel Blob (Public)
+Redimensionamento e remoção de fundo automática via IA.4
+Logotipos de Partido
+Vercel Blob (Public)
+Verificação de contraste contra a cor de fundo do site.37
+Documentos (PDF)
+Vercel Blob (Private/Public)
+Extração de texto para geração de resumos de propostas via IA.30
+
+Motor de Inteligência Artificial e Modificação Direta de Código
+O requisito mais inovador deste sistema é a IA integrada capaz de alterar o código-fonte diretamente. Diferente de sistemas que apenas alteram valores em um banco de dados que são lidos por um template, esta plataforma deve permitir iterações de design e lógica que resultam em commits reais no repositório Git.19
+Agente de Codificação e Integração Git
+O motor de IA deve ser implementado como um agente autônomo utilizando o Vercel AI SDK. Ele deve ter a capacidade de "entender" o contexto do projeto NextJS e realizar modificações cirúrgicas em arquivos .tsx e .css.10
+Orquestração via AI SDK: O sistema deve utilizar as funções streamText ou generateObject para converter solicitações em linguagem natural (ex: "Mude o cabeçalho para um estilo gradiente azul e adicione um efeito de hover nos botões") em código executável ou instruções de modificação.38
+Modificação de Código-Fonte: A IA deve atuar sobre um sistema de arquivos virtual ou diretamente através da API do GitHub. Ao receber uma solicitação de mudança visual ou estrutural, o agente de IA gera o novo trecho de código, aplica o diff e cria um novo branch no repositório.19
+Deploy de Preview Automático: Cada modificação realizada pela IA deve disparar um Preview Deployment na Vercel. O candidato recebe um link temporário para visualizar a página exatamente como ela ficaria com as alterações da IA antes de confirmar a publicação.11
+Loops de Feedback e Correção: O agente de IA deve ter acesso a ferramentas de linting (ESLint) e verificação de tipos (TypeScript) dentro de um Vercel Sandbox. Se o código gerado possuir erros, a IA deve corrigi-los autonomamente antes de apresentar o resultado ao usuário.45
+Generative UI e Interface de Edição
+Para tornar a experiência fluida, o sistema deve empregar padrões de Generative UI. Durante o chat com a IA, em vez de apenas texto, o sistema deve renderizar componentes React dinâmicos que mostram a pré-visualização da alteração solicitada de forma instantânea.10
+
+Funcionalidade de IA
+Requisito Técnico
+Mecanismo de Implementação
+Modificação de Layout
+Direct JSX Manipulation
+Agente de IA reescreve a árvore de componentes no branch do candidato.48
+Customização de Estilo
+Tailwind Class Injector
+IA analisa o tailwind.config.ts e injeta classes utilitárias baseadas na identidade visual.6
+Geração de Conteúdo
+Modelos Multimodais
+IA sugere textos de campanha baseados no perfil do candidato e otimiza para SEO.50
+Validação de Segurança
+Código em Sandbox
+Execução de trechos de código gerados em ambiente isolado para prevenir injeção de scripts maliciosos.19
+
+Interface de Usuário e Gestão de Identidade Visual
+A plataforma deve oferecer uma interface de "telas simples" para que o candidato defina sua marca. Este módulo é a ponte entre a criatividade do usuário e a execução técnica da IA.53
+Personalização de Branding e Estilo
+O candidato deve ter controle total sobre os elementos que compõem sua identidade visual, sem a necessidade de arrastar elementos complexos de um editor visual pesado.3
+Seleção de Cores: Interface baseada em "variáveis de tema". O usuário escolhe a cor principal, e o sistema (via IA) gera automaticamente a paleta complementar, garantindo que as cores de fundo, texto e botões mantenham harmonia e legibilidade.37
+Configuração de Tipografia: Acesso curado a bibliotecas de fontes de alta performance. O sistema deve sugerir pares de fontes (títulos e corpo de texto) que transmitam a mensagem desejada (ex: confiança, inovação, proximidade).2
+Layouts Semânticos: Em vez de editar pixels, o candidato seleciona "intenções de seção". Exemplos: "Seção de Biografia", "Grade de Vídeos do YouTube", "Formulário de Voluntariado". A IA organiza essas seções no código-fonte seguindo as melhores práticas de hierarquia visual.59
+Visualização Responsiva Real-time: A interface de edição deve mostrar simultaneamente como a landing page se comporta em dispositivos móveis e desktops, forçando o padrão mobile-first.3
+Componentes de Campanha Prontos para Conversão
+O sistema deve disponibilizar componentes específicos para o cenário político, já integrados com o backend e o banco de dados.3
+
+Componente
+Funcionalidade Integrada
+Requisito de Dados
+Contador de Dias
+Urgência para a data da eleição
+Data final configurada no perfil do inquilino.64
+Mural de Propostas
+Filtro por temas (Saúde, Educação)
+Tags indexadas no PostgreSQL.3
+Feed de Redes Sociais
+Embed dinâmico de Instagram/TikTok
+Integração via API de terceiros ou widgets.3
+Captação de Leads
+Registro de eleitores interessados
+Conformidade rigorosa com a LGPD e armazenamento seguro.59
+
+Gerenciamento de Domínios, Assinaturas e Endpoints
+A disponibilidade do site do candidato ocorre em duas camadas: um endpoint padrão do sistema para visualização imediata e a contratação de um domínio próprio via assinatura.66
+Disponibilização como Endpoint do Sistema
+Cada landing page criada deve ser acessível instantaneamente através de um subdomínio da plataforma (ex: candidato.votodigital.com.br). Este endpoint é gerado dinamicamente no momento da criação da conta.1
+Roteamento Dinâmico: Uso de Dynamic Routes no NextJS que leem o slug da URL e buscam os dados do inquilino no banco de dados.8
+Certificação SSL: A Vercel deve emitir automaticamente certificados SSL curinga (wildcard) para todos os subdomínios da plataforma, garantindo que o site seja seguro (HTTPS) desde o primeiro segundo.7
+Contratação de Domínio Próprio e Assinatura (Stripe)
+A transição para um domínio profissional (ex: www.marcosvereador.com.br) deve ser automatizada através de um fluxo de assinatura no Stripe.17
+Checkout e Subscription: O candidato seleciona um plano premium. O Stripe gerencia a recorrência e o processamento de pagamento. A confirmação do pagamento dispara um webhook para a aplicação.17
+Vercel Registrar API: Após a assinatura, o sistema utiliza a API da Vercel para permitir que o usuário pesquise e compre domínios diretamente na interface da plataforma. O registro é feito programaticamente em nome da conta da plataforma, mas vinculado ao projeto do candidato.72
+Configuração de DNS Automática: Se o domínio for comprado via plataforma, o sistema configura os DNS (A record, CNAME) e os nomeservers da Vercel automaticamente. Se o candidato já possuir um domínio externo, o sistema deve fornecer as instruções de DNS e verificar a propagação via API.13
+Ciclo de Vida do Domínio: O sistema deve monitorar renovações e cancelamentos de assinatura. Em caso de inadimplência, o domínio deve ser desvinculado do projeto ou redirecionado para uma página de suspensão, conforme as regras da Vercel.73
+
+Fluxo de Domínio
+Status de API Vercel
+Resposta do Sistema
+Adição de Domínio
+projectsAddProjectDomain
+Domínio vinculado ao projeto do inquilino.75
+Verificação de DNS
+projectsVerifyProjectDomain
+Validação de registros TXT/CNAME em tempo real.76
+Emissão de SSL
+Automático via Let's Encrypt
+Site passa a responder via HTTPS sem intervenção.7
+Redirecionamento Apex
+redirect: domain.com
+Garante que domain.com aponte para www.domain.com.75
+
+Conformidade Legal e Regras do TSE
+O desenvolvimento de tecnologia para o setor eleitoral no Brasil exige que a conformidade legal não seja apenas uma funcionalidade, mas um requisito arquitetural. O sistema deve automatizar a aplicação das regras do TSE para 2024 e 2026 para evitar multas ou cassação de candidaturas.79
+Identificação de Propaganda e Transparência
+As landing pages devem incluir obrigatoriamente um rodapé estruturado com informações fiscais e partidárias.81
+CNPJ do Candidato e do Contratante: Todo material de propaganda na internet deve conter o número de inscrição no CNPJ ou CPF do responsável, bem como de quem contratou o serviço.81
+Identificação de Coligação: Para candidaturas majoritárias, o nome da coligação e todos os partidos que a integram devem constar de forma clara.81
+Hierarquia de Nomes: O nome do candidato a Vice ou Suplente deve constar de modo legível, com tamanho de fonte não inferior a 30% do nome do titular.81
+Aviso de Uso de IA: Qualquer conteúdo gerado ou manipulado por inteligência artificial (incluindo layouts gerados pelo motor do sistema) deve conter um aviso explícito, destacado e acessível sobre o uso da tecnologia.81
+Proibições Técnicas e Moderação de IA
+O motor de IA deve possuir guardrails para impedir a violação de vedações eleitorais.36
+Bloqueio de Deepfakes: O sistema deve impedir a geração de imagens ou sons sintéticos que substituam vozes ou imagens de pessoas reais para propagar fatos inverídicos.36
+Restrição a Chatbots Simuladores: É vedado o uso de IA para simular diálogo do candidato com o eleitor. O chat do sistema deve ser estritamente funcional para o candidato (criação do site) e nunca um bot de atendimento no front-end da landing page.85
+Propaganda Negativa e Impulsionamento: O sistema deve desabilitar qualquer funcionalidade que facilite o impulsionamento de conteúdo negativo contra adversários, prática proibida pela legislação brasileira.36
+Período de Silêncio: O sistema deve permitir o agendamento do desligamento de impulsionamentos e atualizações automáticas nas 48 horas que antecedem o pleito, conforme as janelas de proibição legal.36
+Acessibilidade Digital Obrigatória
+A acessibilidade não é opcional para sites de candidatos. O sistema deve garantir conformidade com o padrão e-MAG e WCAG 2.1.89
+
+Recurso de Acessibilidade
+Requisito do Sistema
+Implementação Técnica
+Contraste de Cores
+Validação automática de ratio 4.5:1
+Algoritmo de verificação de cores na interface de branding.37
+Texto Alternativo
+Campo obrigatório para todas as imagens
+Bloqueio de publicação se alt estiver vazio no Vercel Blob.25
+Navegação por Teclado
+Suporte total a tabindex e foco
+Componentes Shadcn/UI com foco acessível nativo.89
+Suporte a Libras
+Integração com Rybená ou VLibras
+Espaço dedicado no layout para o widget de tradução.81
+
+Segurança, LGPD e Privacidade de Dados
+O tratamento de dados de eleitores e as informações de campanha são alvos frequentes de ataques cibernéticos e escrutínio jurídico. O sistema deve ser resiliente e transparente.3
+Proteção de Dados (LGPD)
+O sistema deve automatizar a gestão de privacidade para o candidato.65
+Canal de Comunicação e DPO: Criação automática de uma página de Política de Privacidade que identifica o encarregado de dados (DPO) da campanha e fornece um formulário para exercício de direitos dos titulares (ex: exclusão de e-mail da lista de mailing).65
+Logs de Consentimento: Armazenamento seguro de logs de consentimento para cada lead capturado nas landing pages, garantindo prova de conformidade em caso de auditoria judicial.3
+Criptografia e Isolamento: Uso de criptografia de ponta a ponta (TLS 1.3) em trânsito e criptografia de dados em repouso no Neon Postgres.3
+Segurança da Infraestrutura Vercel
+A plataforma deve alavancar os recursos de segurança da Vercel para proteger as landing pages contra ataques de negação de serviço (DDoS) e injeção de código.3
+WAF (Web Application Firewall): Ativação de regras de firewall na borda para bloquear bots maliciosos e ataques comuns de OWASP.7
+Deployment Protection: Proteção de branches de preview com senhas ou autenticação via Vercel, garantindo que apenas a equipe da campanha veja o site antes do lançamento oficial.11
+Soft e Hard Caps de Uso: Configuração de limites de gastos para evitar que picos de tráfego (ou ataques de bots) gerem custos inesperados de infraestrutura que inviabilizem a prestação de contas da campanha.92
+Requisitos de Performance e Observabilidade
+Uma landing page eleitoral que falha em carregar rapidamente pode significar a perda de um voto ou a rejeição de uma mensagem política. O sistema deve ser otimizado para os Core Web Vitals.9
+Desempenho de Carregamento (LCP): O sistema deve garantir um Largest Contentful Paint inferior a 2,5 segundos, utilizando técnicas de pré-carregamento de ativos e renderização parcial (Partial Prerendering) do NextJS.2
+Deduplicação de Layout: Uso de layouts compartilhados do NextJS para evitar que elementos comuns (header, footer) sejam renderizados novamente durante a navegação, economizando banda e processamento.2
+Vercel Speed Insights: Integração nativa para que o gestor da campanha possa monitorar a performance real percebida pelos eleitores em diferentes regiões do Brasil.2
+Vercel Web Analytics: Fornecimento de dados de audiência sem o uso de cookies intrusivos, mantendo o anonimato dos eleitores e cumprindo a LGPD enquanto oferece insights sobre as propostas mais lidas.2
+Conclusões e Roadmap de Implementação
+A arquitetura detalhada neste relatório estabelece um novo padrão para o marketing digital político, transformando a criação de sites de uma tarefa técnica árdua em um processo criativo fluido mediado por Inteligência Artificial. A escolha da pilha tecnológica NextJS, Vercel e PostgreSQL não é meramente preferencial, mas fundamentada na necessidade de automação total das migrações e deploys, eliminando o erro humano e garantindo a escalabilidade necessária para o período eleitoral.1
+O sucesso da plataforma depende da integração harmoniosa entre a liberdade criativa oferecida pela IA (com modificação direta de código) e as cercas de proteção (guardrails) impostas pela legislação brasileira. Recomenda-se que a primeira fase de implementação foque na estabilidade do pipeline de CI/CD via GitHub API, assegurando que as alterações da IA sejam sempre auditáveis através de histórico de commits e que os bancos de dados dos candidatos sejam provisionados de forma resiliente via Neon.11
+Ao automatizar a conformidade com as resoluções do TSE e os padrões de acessibilidade, o sistema não apenas entrega uma ferramenta de marketing, mas uma camada de segurança jurídica para as candidaturas, permitindo que os candidatos foquem em suas propostas enquanto a plataforma cuida da integridade de sua presença digital.81
+Referências citadas
+Overview - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/platforms/docs
+Next.js on Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/frameworks/full-stack/nextjs
+Political Campaign Website Builder | Solidarity Tech, acessado em fevereiro 20, 2026, https://www.solidarity.tech/solutions/political-campaign-website-builder
+Vercel Storage overview, acessado em fevereiro 20, 2026, https://vercel.com/docs/storage
+Next.js AI Chatbot Templates & Starters - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/templates/next.js/nextjs-ai-chatbot
+FAQs | v0 Docs, acessado em fevereiro 20, 2026, https://v0.app/docs/faqs
+Vercel for Platforms, acessado em fevereiro 20, 2026, https://vercel.com/docs/multi-tenant
+Subdomain-Based Routing in Next.js: A Complete Guide for Multi-Tenant Applications | by Sheharyarishfaq | Medium, acessado em fevereiro 20, 2026, https://medium.com/@sheharyarishfaq/subdomain-based-routing-in-next-js-a-complete-guide-for-multi-tenant-applications-1576244e799a
+Next.js 16, acessado em fevereiro 20, 2026, https://nextjs.org/blog/next-16
+Introducing AI SDK 3.0 with Generative UI support - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/blog/ai-sdk-3-generative-ui
+How can I use GitHub Actions with Vercel?, acessado em fevereiro 20, 2026, https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel
+Building Multi‑Tenant Applications with Next .js - Contract Software Engineer, acessado em fevereiro 20, 2026, https://johnkavanagh.co.uk/articles/building-a-multi-tenant-application-with-next-js/
+Building Custom Domain Management with Vercel API: The Good, The Bad, and The DNS Propagation | by Abderahmane Toumi | Jan, 2026, acessado em fevereiro 20, 2026, https://abderahmanetoumi.medium.com/building-custom-domain-management-with-vercel-api-the-good-the-bad-and-the-dns-propagation-4e896a96d663
+AI-Powered Website Generator with ChatGPT and Next.js 15 ..., acessado em fevereiro 20, 2026, https://dev.to/roma_armstrong/ai-powered-website-generator-with-chatgpt-and-nextjs-15-building-seo-optimized-pages-from-scratch-27lb
+Building Scalable Authentication in Next.js: Complete 2025 Developer Guide - Clerk, acessado em fevereiro 20, 2026, https://clerk.com/articles/building-scalable-authentication-in-nextjs
+Postgres on Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/postgres
+Build a subscriptions integration - Stripe Documentation, acessado em fevereiro 20, 2026, https://docs.stripe.com/billing/subscriptions/build-subscriptions
+Stripe & Supabase SaaS Starter Kit - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/templates/next.js/stripe-supabase-saas-starter-kit
+Build Your Own AI Coding Agent with Vercel's Next.js Template - NextGen JavaScript, acessado em fevereiro 20, 2026, https://next.jqueryscript.net/next-js/ai-coding-agent-template/
+Prisma ORM Production Guide: Next.js Complete Setup 2025, acessado em fevereiro 20, 2026, https://www.digitalapplied.com/blog/prisma-orm-production-guide-nextjs
+Vercel with Neon Postgres, acessado em fevereiro 20, 2026, https://vercel.com/templates/next.js/vercel-with-neon-postgres
+Prisma vs Drizzle: Which ORM for Your Next.js Project? (2026) | DesignRevision, acessado em fevereiro 20, 2026, https://designrevision.com/blog/prisma-vs-drizzle
+PostgreSQL + Next.js + Drizzle ORM(A Step-by-Step Guide) | by Sikandar Dev - Medium, acessado em fevereiro 20, 2026, https://medium.com/@the.sikandar.dev/postgresql-next-js-drizzle-orm-a-step-by-step-guide-cb487b1a3ca3
+vercel-labs/coding-agent-template: Multi-agent AI coding platform powered by Vercel Sandbox and AI Gateway - GitHub, acessado em fevereiro 20, 2026, https://github.com/vercel-labs/coding-agent-template
+A step-by-step guide to V0.dev development : r/nextjs - Reddit, acessado em fevereiro 20, 2026, https://www.reddit.com/r/nextjs/comments/1jgbvx7/a_stepbystep_guide_to_v0dev_development/
+Squashing the “Outdated Prisma Client” Error — A Practical Guide to Deploying Next.js + Prisma on Vercel (2025) | by Priyanshu Patel | Medium, acessado em fevereiro 20, 2026, https://medium.com/@patelpriysnshu2410/squashing-the-outdated-prisma-client-error-a-practical-guide-to-deploying-next-js-89e1e7c01d2c
+Prisma Postgres via Vercel Marketplace, acessado em fevereiro 20, 2026, https://www.prisma.io/docs/guides/postgres/vercel
+Drizzle with Vercel Postgres, acessado em fevereiro 20, 2026, https://orm.drizzle.team/docs/tutorials/drizzle-with-vercel
+Vercel migrations | Backend APIs, Web Apps, Bots & Automation | Hrekov, acessado em fevereiro 20, 2026, https://hrekov.com/blog/vercel-migrations
+@vercel/blob, acessado em fevereiro 20, 2026, https://vercel.com/docs/vercel-blob/using-blob-sdk
+Client Uploads with Vercel Blob, acessado em fevereiro 20, 2026, https://vercel.com/docs/vercel-blob/client-upload
+Must-Know Political Website Design Tips + Inspiring Examples - Cornershop Creative, acessado em fevereiro 20, 2026, https://cornershopcreative.com/blog/political-website-design/
+Designer Spotlight: 10 Best Practices for Effective Landing Page UX Design - Goji Labs, acessado em fevereiro 20, 2026, https://gojilabs.com/blog/designer-spotlight-10-best-practices-for-effective-landing-page-ux-design/
+Server Uploads with Vercel Blob, acessado em fevereiro 20, 2026, https://vercel.com/docs/vercel-blob/server-upload
+Vercel Blob, acessado em fevereiro 20, 2026, https://vercel.com/docs/vercel-blob
+Se Liga: o que não é permitido na propaganda eleitoral na internet?, acessado em fevereiro 20, 2026, https://www.tse.jus.br/comunicacao/noticias/2024/Julho/se-liga-o-que-nao-e-permitido-na-propaganda-eleitoral-na-internet
+Dashboard Design UX Patterns Best Practices - Pencil & Paper, acessado em fevereiro 20, 2026, https://www.pencilandpaper.io/articles/ux-pattern-analysis-data-dashboards
+AI SDK - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/ai-sdk
+v0 by Vercel - Build Agents, Apps, and Websites with AI, acessado em fevereiro 20, 2026, https://v0.app/
+Create an AI Agent with Vercel AI SDK | by Emily Xiong - Medium, acessado em fevereiro 20, 2026, https://emilyxiong.medium.com/create-an-ai-agent-with-vercel-ai-sdk-e690b807eb2a
+T4 Stack: Next.js 16 + Vercel AI SDK + Local RAG Tutorial - SitePoint, acessado em fevereiro 20, 2026, https://www.sitepoint.com/t4-stack-nextjs-16-vercel-ai-sdk-local-rag-tutorial/
+A Practical Guide to Using Vercel AI SDK in Next.js Applications - Telerik.com, acessado em fevereiro 20, 2026, https://www.telerik.com/blogs/practical-guide-using-vercel-ai-sdk-next-js-applications
+Coding Agent Platform - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/templates/next.js/coding-agent-platform
+Deploy to Vercel Action - GitHub Marketplace, acessado em fevereiro 20, 2026, https://github.com/marketplace/actions/deploy-to-vercel-action
+Claude Code + Next.js and Vercel Integration: Complete Guide with Agents, Commands and Hooks, acessado em fevereiro 20, 2026, https://aitmpl.com/blog/nextjs-vercel-claude-code-integration/
+vercel/next-devtools-mcp: Next.js Development for Coding Agent - GitHub, acessado em fevereiro 20, 2026, https://github.com/vercel/next-devtools-mcp
+Generative User Interfaces - AI SDK UI, acessado em fevereiro 20, 2026, https://ai-sdk.dev/docs/ai-sdk-ui/generative-user-interfaces
+Generative UI: A First Look at v0 | Griffiths Waite Insights, acessado em fevereiro 20, 2026, https://www.griffiths-waite.co.uk/insights/article/generative-ui-a-first-look-at-v0
+Vercel v0 - AI-Powered UI Generator - Refine, acessado em fevereiro 20, 2026, https://refine.dev/blog/vercel-v0/
+Best AI Political Campaign Website Builders: In-Depth Guide to Top Tools - Appy Pie, acessado em fevereiro 20, 2026, https://www.appypie.com/blog/best-ai-political-website-builder
+Top 12 No-Code Website Builders that will Dominate the Market in 2025 - Kovaion, acessado em fevereiro 20, 2026, https://www.kovaion.com/blog/no-code-website-builders-that-will-dominate-the-market/
+Safely running AI generated code in your Next.js application | Vercel Knowledge Base, acessado em fevereiro 20, 2026, https://vercel.com/kb/guide/running-ai-generated-code-sandbox
+how to create a website without coding - Landing page - Casual.PM, acessado em fevereiro 20, 2026, https://casual.pm/how-to/no-code-landing
+Top No-Code Website Builder in 2025 - GeeksforGeeks, acessado em fevereiro 20, 2026, https://www.geeksforgeeks.org/blogs/best-no-code-website-builders/
+No Coding Skills? No Problem! Build Landing Pages Visually for Free - Unicorn Platform, acessado em fevereiro 20, 2026, https://unicornplatform.com/blog/no-coding-skills-no-problem-build-landing-pages-visually-for-free/
+Beginner's Guide to No-Code Web Design with Webflow Development - Cypherox, acessado em fevereiro 20, 2026, https://www.cypherox.com/blog/beginners-guide-to-webflow-no-code-design
+10 Best AI Website Builders for No-Code Design in 2025 | DigitalOcean, acessado em fevereiro 20, 2026, https://www.digitalocean.com/resources/articles/ai-website-builders
+How to build Websites with Great UI in 2025? (For someone who is getting started) - Reddit, acessado em fevereiro 20, 2026, https://www.reddit.com/r/ycombinator/comments/1jdfz2b/how_to_build_websites_with_great_ui_in_2025_for/
+5 Best No Code Landing Page Builders in 2026 - Emergent, acessado em fevereiro 20, 2026, https://emergent.sh/learn/best-no-code-landing-page-builders
+Landing Page Design Best Practices: What Works In 2025 - fermàt, acessado em fevereiro 20, 2026, https://www.fermatcommerce.com/post/landing-page-design
+10 Landing Page Design Best Practices to Maximize Conversions in 2026, acessado em fevereiro 20, 2026, https://www.uforocks.com/blog/landing-page-design-best-practices/
+Converting Visitors into Voters: Landing Page Strategies for Political Campaigns That Mobilize Support | by Ashish Patel | Feb, 2026 | Medium, acessado em fevereiro 20, 2026, https://medium.com/@ashish.devoq/converting-visitors-into-voters-landing-page-strategies-for-political-campaigns-that-mobilize-1cda7a314692
+Landing Pages for Political Websites - Monster ONE, acessado em fevereiro 20, 2026, https://monsterone.com/html-templates/landing-page-templates/topic/political/
+The Perfect Landing Page in 2025 - Deadline Funnel, acessado em fevereiro 20, 2026, https://www.deadlinefunnel.com/blog/landing-page-creation-guide
+Confira as novas regras sobre o tratamento de dados pessoais por candidaturas e partidos — Tribunal Superior Eleitoral, acessado em fevereiro 20, 2026, https://www.tse.jus.br/comunicacao/noticias/2024/Agosto/confira-as-novas-regras-sobre-o-tratamento-de-dados-pessoais-por-candidaturas-e-partidos
+Working with domains - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/domains/working-with-domains
+How to Dynamically Add Custom Domains in Vercel for Your SaaS Application - Medium, acessado em fevereiro 20, 2026, https://medium.com/@nurulislamrimon/how-to-dynamically-add-custom-domains-in-vercel-for-your-saas-application-9cdf16268187
+Working with SSL Certificates - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/domains/working-with-ssl
+Getting started with Next.js, TypeScript, and Stripe Checkout | Vercel Knowledge Base, acessado em fevereiro 20, 2026, https://vercel.com/kb/guide/getting-started-with-nextjs-typescript-stripe
+Stripe for Vercel, acessado em fevereiro 20, 2026, https://vercel.com/marketplace/stripe
+Simple Online Store with Stripe - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/templates/next.js/simple-online-store-with-stripe
+New Domains Registrar API for domain search, pricing, purchase, and management - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/changelog/new-domains-registrar-api-for-domain-search-pricing-purchase-and-management
+Programmatic Domain Management - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/domains/registrar-api
+Buy a domain | Vercel REST API, acessado em fevereiro 20, 2026, https://vercel.com/docs/rest-api/reference/endpoints/domains-registrar/buy-a-domain
+Domain management for multi-tenant - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/multi-tenant/domain-management
+Configuring Custom Domains - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/platforms/docs/multi-tenant-platforms/configuring-domains
+Billing FAQ for Pro Plan - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/plans/pro-plan/billing
+Deploying & Redirecting Domains - Vercel, acessado em fevereiro 20, 2026, https://vercel.com/docs/domains/working-with-domains/deploying-and-redirecting
+Eleições 2024: TSE aprova todas as resoluções que regerão o pleito — Tribunal Regional Eleitoral de São Paulo, acessado em fevereiro 20, 2026, https://www.tre-sp.jus.br/comunicacao/noticias/2024/Fevereiro/eleicoes-2024-tse-aprova-todas-as-resolucoes-que-regerao-o-pleito
+Pré-candidatos: o que podem e o que não podem fazer antes da campanha eleitoral de 2026 — Tribunal Regional Eleitoral de São Paulo, acessado em fevereiro 20, 2026, https://www.tre-sp.jus.br/comunicacao/noticias/2025/Dezembro/pre-candidatos-o-que-podem-e-o-que-nao-podem-fazer-antes-da-campanha-eleitoral-de-2026
+Conheça as regras gerais para a divulgação de propaganda eleitoral - Tribunal Superior Eleitoral, acessado em fevereiro 20, 2026, https://www.tse.jus.br/comunicacao/noticias/2024/Marco/conheca-as-regras-gerais-para-a-divulgacao-de-propaganda-eleitoral
+Conheça as regras para confecção de material gráfico nas Eleições 2024, acessado em fevereiro 20, 2026, https://republicanos10.org.br/candidato-republicano-2024/conheca-as-regras-para-confeccao-de-material-grafico-nas-eleicoes-2024/
+Manual de Registro de Candidaturas para as eleições 2024 — Tribunal Regional Eleitoral de Sergipe, acessado em fevereiro 20, 2026, https://www.tre-se.jus.br/comunicacao/noticias/2024/Julho/manual-de-registro-de-candidaturas-para-as-eleicoes-2024
+Saiba mais sobre as regras para apresentação do registro de candidatura para as Eleições 2024 - Tribunal Superior Eleitoral, acessado em fevereiro 20, 2026, https://www.tse.jus.br/comunicacao/noticias/2024/Marco/saiba-mais-sobre-as-regras-para-apresentacao-do-registro-de-candidatura-para-as-eleicoes-2024
+TSE proíbe uso de inteligência artificial para criar e propagar conteúdos falsos nas eleições, acessado em fevereiro 20, 2026, https://www.tse.jus.br/comunicacao/noticias/2024/Fevereiro/tse-proibe-uso-de-inteligencia-artificial-para-criar-e-propagar-conteudos-falsos-nas-eleicoes
+Confira as novidades da resolução da propaganda sobre o enfrentamento da desinformação — Tribunal Regional Eleitoral de Santa Catarina - TRE-SC, acessado em fevereiro 20, 2026, https://www.tre-sc.jus.br/comunicacao/noticias/2024/Agosto/confira-as-novidades-da-resolucao-da-propaganda-sobre-o-enfrentamento-da-desinformacao
+Governo pede ao TSE regras para uso de IA e redes sociais nas eleições de 2026, acessado em fevereiro 20, 2026, https://www.youtube.com/watch?v=0yhDAeqbNRg
+TSE mantém multa a prefeito e vice de São Gonçalo do Amarante (RN) por propaganda eleitoral negativa, acessado em fevereiro 20, 2026, https://www.tse.jus.br/comunicacao/noticias/2026/Fevereiro/tse-mantem-multa-a-prefeito-e-vice-de-sao-goncalo-do-amarante-rn-por-propaganda-eleitoral-negativa
+Acessibilidade — Tribunal Regional Eleitoral do Pará, acessado em fevereiro 20, 2026, https://www.tre-pa.jus.br/acessibilidade-1
+Acessibilidade na Democracia | Informações, Recursos e Orientações - Justiça Eleitoral, acessado em fevereiro 20, 2026, https://www.justicaeleitoral.jus.br/acessibilidade-e-inclusao-na-democracia/
+Every AI Engineer should learn Next JS. | by Karan Shingde - Level Up Coding, acessado em fevereiro 20, 2026, https://levelup.gitconnected.com/every-ai-engineer-should-learn-next-js-554f634a5f47
+Hosting your API on Vercel, acessado em fevereiro 20, 2026, https://vercel.com/kb/guide/hosting-backend-apis
+Vercel Pro Plan, acessado em fevereiro 20, 2026, https://vercel.com/docs/plans/pro-plan
