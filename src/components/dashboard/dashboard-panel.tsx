@@ -25,9 +25,25 @@ export function DashboardPanel({ tenantId }: { tenantId: string }) {
 
                     <TabsContent value="theme" className="mt-4">
                         <ThemeConfigurator
-                            onSave={(data) => {
-                                console.log("Saving theme to DB:", data);
-                                // POST to API route
+                            onSave={async (data) => {
+                                try {
+                                    const res = await fetch("/api/theme", {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({ tenantId, ...data }),
+                                    });
+
+                                    if (res.ok) {
+                                        alert("Identidade visual salva com sucesso!");
+                                    } else {
+                                        alert("Erro ao salvar identidade.");
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                    alert("Erro ao salvar identidade.");
+                                }
                             }}
                         />
                     </TabsContent>
