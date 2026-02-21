@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { PrismaClient } from "@prisma/client";
 import { Metadata } from 'next';
-
+import { ElectionCountdown } from "@/components/campaign/countdown";
+import { LeadCaptureForm } from "@/components/campaign/lead-capture";
+import { LegalFooter } from "@/components/campaign/legal-footer";
 const prisma = new PrismaClient();
 
 // Dynamic Metadata example
