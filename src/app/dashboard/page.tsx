@@ -2,6 +2,8 @@ import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
 import { PrismaClient } from "@prisma/client";
 import { notFound } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 const prisma = new PrismaClient();
 
 export default async function DashboardPage() {
