@@ -27,7 +27,7 @@ export function GenerativeChat({ tenantId }: { tenantId: string }) {
             </CardHeader>
             <CardContent className="flex-1 flex flex-col overflow-hidden">
                 <ScrollArea className="flex-1 mb-4 p-4 border rounded-md">
-                    {messages.map((m) => (
+                    {messages?.map((m: any) => (
                         <div
                             key={m.id}
                             className={`mb-4 flex ${m.role === "user" ? "justify-end" : "justify-start"
