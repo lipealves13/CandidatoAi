@@ -5,10 +5,10 @@ import { streamText } from "ai";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-    const { messages } = await req.json();
+  const { messages } = await req.json();
 
-    // Guardrails Prompting to ensure compliance with TSE
-    const systemPrompt = `
+  // Guardrails Prompting to ensure compliance with TSE
+  const systemPrompt = `
     Você é um assistente de inteligência artificial focado no design e construção de páginas de campanha política no Brasil.
     Você escreve código para NextJS (React) com TailwindCSS.
 
@@ -23,12 +23,12 @@ export async function POST(req: Request) {
     Responda sempre gerando componentes React limpos usando React Server Components / Shadcn e TailwindCSS.
   `;
 
-    // Start the text generation stream
-    const result = streamText({
-        model: openai("gpt-4o"), // Uses OPENAI_API_KEY from env
-        messages,
-        system: systemPrompt,
-    });
+  // Start the text generation stream
+  const result = streamText({
+    model: openai("gpt-4o"), // Uses OPENAI_API_KEY from env
+    messages,
+    system: systemPrompt,
+  });
 
-    return result.toDataStreamResponse();
+  return result.toTextStreamResponse();
 }
