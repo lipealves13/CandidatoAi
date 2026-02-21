@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 
 export function GenerativeChat({ tenantId }: { tenantId: string }) {
-    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat();
+    // @ts-ignore
+    const { messages, append, isLoading } = useChat() as any;
+    const [inputLocal, setInputLocal] = useState("");
+
+    const internalSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inputLocal.trim()) return;
+        if (append) append({ role: 'user', content: inputLocal });
+        setInputLocal("");
+    };
 
     return (
         <Card className="w-full h-[600px] flex flex-col">
@@ -25,8 +35,8 @@ export function GenerativeChat({ tenantId }: { tenantId: string }) {
                         >
                             <div
                                 className={`flex max-w-[80%] rounded-lg p-3 ${m.role === "user"
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted"
                                     }`}
                             >
                                 {m.role === "user" ? (
@@ -51,14 +61,14 @@ export function GenerativeChat({ tenantId }: { tenantId: string }) {
                         </div>
                     )}
                 </ScrollArea>
-                <form onSubmit={handleSubmit} className="flex gap-2">
+                <form onSubmit={internalSubmit} className="flex gap-2">
                     <Input
-                        value={input}
-                        onChange={handleInputChange}
+                        value={inputLocal}
+                        onChange={(e) => setInputLocal(e.target.value)}
                         placeholder="Ex: Mude o cabeçalho para azul..."
                         disabled={isLoading}
                     />
-                    <Button type="submit" disabled={isLoading || !input.trim()}>
+                    <Button type="submit" disabled={isLoading || !inputLocal.trim()}>
                         Enviar
                     </Button>
                 </form>
