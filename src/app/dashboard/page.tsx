@@ -5,11 +5,20 @@ import { notFound } from "next/navigation";
 const prisma = new PrismaClient();
 
 export default async function DashboardPage() {
-    // In a real application, we would use NextAuth or Clerk to get the user ID
-    // For the MVP, we hardcode a demo tenant ID from the database or just pass a mock
+    // For the MVP, we fetch the first tenant from the database.
+    // If none exists, we create a default demo tenant to avoid Foreign Key constraint errors.
+    let tenant = await prisma.tenant.findFirst();
 
-    // Using a mock tenantId for MVP demonstration 
-    const tenantId = "mock-tenant-123";
+    if (!tenant) {
+        tenant = await prisma.tenant.create({
+            data: {
+                name: "Candidato Demo",
+                slug: "demo",
+            }
+        });
+    }
+
+    const tenantId = tenant.id;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50">
